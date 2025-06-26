@@ -1,31 +1,14 @@
-[build-system]
-requires = ["hatchling>=1.0.0"]
-build-backend = "hatchling.build"
-
 [project]
 name = "community-calendar"
-version = "0.0.1"
-description = "a server for providing ics calendars for community events"
+version = "0.1.0"
+description = "Add your description here"
 readme = "README.md"
-authors = [
-    {name = "Steven A. Bjornson", email = "info@sabjorn.net"}
-]
-license = {text = "MIT License"}
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
+    "fastapi[standard]>=0.115.13",
 ]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-keywords = []
-
-[project.urls]
-Homepage = "https://github.com/sabjorn/community-calendar"
-
 
 [dependency-groups]
 dev = [
-    "pre-commit",
+    "pre-commit>=4.2.0",
 ]
