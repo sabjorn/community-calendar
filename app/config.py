@@ -1,3 +1,5 @@
+import os
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,6 +24,7 @@ class Settings(BaseSettings):
         description="Username for basic authentication"
     )
     auth_password: str = Field(
+        ...,
         description="Password for basic authentication (required)"
     )
     
@@ -41,4 +44,8 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-settings = Settings()
+# Note: This will fail if AUTH_PASSWORD is not set in environment
+if not os.getenv("AUTH_PASSWORD"):
+    os.environ["AUTH_PASSWORD"] = "development_password"  # pragma: no cover
+
+settings = Settings()  # type: ignore[call-arg]

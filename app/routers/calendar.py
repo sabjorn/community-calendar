@@ -1,9 +1,9 @@
 import secrets
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from icalendar import Calendar, Event as ICalEvent
@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..models import Event, get_db, create_tables
+from ..models import Event, get_db
 
 router = APIRouter(
     tags=["calendar"],
@@ -20,7 +20,7 @@ router = APIRouter(
 
 security = HTTPBasic()
 
-def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)):
+def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     correct_username = secrets.compare_digest(credentials.username, settings.auth_username)
     correct_password = secrets.compare_digest(credentials.password, settings.auth_password)
     if not (correct_username and correct_password):
@@ -37,7 +37,7 @@ class EventCreate(BaseModel):
     tags: List[str] = []
 
 @router.post("/add-event")
-async def add_event(event: EventCreate, db: Session = Depends(get_db)):
+async def add_event(event: EventCreate, db: Session = Depends(get_db)) -> dict[str, str]:
     db_event = Event(
         title=event.title,
         start_time=event.start_time,
@@ -52,10 +52,10 @@ async def add_event(event: EventCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_event)
     
-    return {"message": "Event added successfully", "event_id": db_event.id}
+    return {"message": "Event added successfully", "event_id": str(db_event.id)}
 
 @router.get("/events.ics")
-async def get_calendar(db: Session = Depends(get_db)):
+async def get_calendar(db: Session = Depends(get_db)) -> Response:
     cal = Calendar()
     cal.add('prodid', settings.calendar_prodid)
     cal.add('version', '2.0')
@@ -82,7 +82,7 @@ async def get_calendar(db: Session = Depends(get_db)):
                    headers={"Content-Disposition": "attachment; filename=events.ics"})
 
 @router.post("/cleanup")
-async def cleanup_past_events(db: Session = Depends(get_db)):
+async def cleanup_past_events(db: Session = Depends(get_db)) -> dict[str, str]:
     now = datetime.now(timezone.utc)
     past_events = db.query(Event).filter(Event.end_time < now).all()
     
@@ -93,7 +93,7 @@ async def cleanup_past_events(db: Session = Depends(get_db)):
     return {"message": f"Removed {len(past_events)} past events"}
 
 @router.get("/submit-event", response_class=HTMLResponse)
-async def submit_event_form(username: str = Depends(authenticate_user)):
+async def submit_event_form(username: str = Depends(authenticate_user)) -> str:
     form_html = """
     <!DOCTYPE html>
     <html>
@@ -159,7 +159,7 @@ async def submit_event_form_post(
     tags: str = Form(""),
     username: str = Depends(authenticate_user),
     db: Session = Depends(get_db)
-):
+) -> str:
     try:
         start_dt = datetime.fromisoformat(start_time)
         end_dt = datetime.fromisoformat(end_time)

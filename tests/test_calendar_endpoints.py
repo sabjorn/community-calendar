@@ -82,7 +82,7 @@ class TestAddEventEndpoint:
                 assert response.status_code == 200
                 response_data = response.json()
                 assert response_data["message"] == "Event added successfully"
-                assert response_data["event_id"] == 1
+                assert response_data["event_id"] == "1"
                 
                 mock_event_class.assert_called_once()
                 mock_event.set_tags_list.assert_called_once_with(["test", "demo"])
@@ -151,7 +151,7 @@ class TestAddEventEndpoint:
                 assert response.status_code == 200
                 response_data = response.json()
                 assert response_data["message"] == "Event added successfully"
-                assert response_data["event_id"] == 3
+                assert response_data["event_id"] == "3"
         finally:
             app.dependency_overrides.clear()
 
