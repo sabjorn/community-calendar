@@ -9,17 +9,15 @@ from icalendar import Calendar
 # Mock environment variables before any imports
 test_env = {
     "DATABASE_URL": "sqlite:///:memory:",
-    "AUTH_USERNAME": "admin", 
+    "AUTH_USERNAME": "admin",
     "AUTH_PASSWORD": "test_password",
     "APP_TITLE": "Test Calendar",
     "APP_DESCRIPTION": "Test Description",
-    "CALENDAR_PRODID": "-//Test Calendar//EN"
+    "CALENDAR_PRODID": "-//Test Calendar//EN",
 }
 
 # Mock settings and create_tables before importing app
-with patch.dict(os.environ, test_env), \
-     patch('app.models.create_tables'):
-    
+with patch.dict(os.environ, test_env), patch("app.models.create_tables"):
     from app.main import app
     from app.models import get_db
 
@@ -30,13 +28,12 @@ def client():
 
 
 class TestAddEventEndpoint:
-    
     def test_add_event_missing_required_fields(self, client):
         incomplete_data = {
             "title": "Incomplete Event",
-            "start_time": "2025-07-01T19:00:00"
+            "start_time": "2025-07-01T19:00:00",
         }
-        
+
         response = client.post("/add-event", json=incomplete_data)
         assert response.status_code == 422
 
@@ -46,18 +43,18 @@ class TestAddEventEndpoint:
             "start_time": "invalid-datetime",
             "end_time": "2025-07-01T21:00:00",
             "description": "Event with invalid datetime",
-            "venue": "Test Venue"
+            "venue": "Test Venue",
         }
-        
+
         response = client.post("/add-event", json=invalid_data)
         assert response.status_code == 422
 
     def test_add_event_success(self, client):
         mock_db_session = Mock()
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
 
         sample_event_data = {
@@ -67,23 +64,23 @@ class TestAddEventEndpoint:
             "description": "A test event for the calendar",
             "venue": "Test Venue",
             "url": "https://example.com",
-            "tags": ["test", "demo"]
+            "tags": ["test", "demo"],
         }
-        
+
         try:
-            with patch('app.routers.calendar.Event') as mock_event_class:
+            with patch("app.routers.calendar.Event") as mock_event_class:
                 mock_event = Mock()
                 mock_event.id = 1
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
-                
+
                 response = client.post("/add-event", json=sample_event_data)
-                
+
                 assert response.status_code == 200
                 response_data = response.json()
                 assert response_data["message"] == "Event added successfully"
                 assert response_data["event_id"] == "1"
-                
+
                 mock_event_class.assert_called_once()
                 mock_event.set_tags_list.assert_called_once_with(["test", "demo"])
                 mock_db_session.add.assert_called_once_with(mock_event)
@@ -94,60 +91,62 @@ class TestAddEventEndpoint:
 
     def test_add_event_with_tags(self, client):
         mock_db_session = Mock()
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         event_data = {
             "title": "Tagged Event",
             "start_time": "2025-07-01T19:00:00",
             "end_time": "2025-07-01T21:00:00",
             "description": "Event with tags",
             "venue": "Test Venue",
-            "tags": ["music", "outdoor", "family"]
+            "tags": ["music", "outdoor", "family"],
         }
-        
+
         try:
-            with patch('app.routers.calendar.Event') as mock_event_class:
+            with patch("app.routers.calendar.Event") as mock_event_class:
                 mock_event = Mock()
                 mock_event.id = 2
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
-                
+
                 response = client.post("/add-event", json=event_data)
-                
+
                 assert response.status_code == 200
-                mock_event.set_tags_list.assert_called_once_with(["music", "outdoor", "family"])
+                mock_event.set_tags_list.assert_called_once_with(
+                    ["music", "outdoor", "family"]
+                )
         finally:
             app.dependency_overrides.clear()
 
     def test_add_event_minimal_data(self, client):
         mock_db_session = Mock()
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         minimal_event_data = {
             "title": "Minimal Event",
             "start_time": "2025-07-01T19:00:00",
             "end_time": "2025-07-01T21:00:00",
             "description": "Minimal event description",
-            "venue": "Test Venue"
+            "venue": "Test Venue",
         }
-        
+
         try:
-            with patch('app.routers.calendar.Event') as mock_event_class:
+            with patch("app.routers.calendar.Event") as mock_event_class:
                 mock_event = Mock()
                 mock_event.id = 3
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
-                
+
                 response = client.post("/add-event", json=minimal_event_data)
-                
+
                 assert response.status_code == 200
                 response_data = response.json()
                 assert response_data["message"] == "Event added successfully"
@@ -157,24 +156,23 @@ class TestAddEventEndpoint:
 
 
 class TestGetEventsEndpoint:
-    
     def test_get_calendar_empty(self, client):
         mock_db_session = Mock()
         mock_db_session.query.return_value.all.return_value = []
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         try:
             response = client.get("/events.ics")
-            
+
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/calendar; charset=utf-8"
             assert "Content-Disposition" in response.headers
             assert "events.ics" in response.headers["Content-Disposition"]
-            
+
             calendar_text = response.text
             assert "BEGIN:VCALENDAR" in calendar_text
             assert "END:VCALENDAR" in calendar_text
@@ -183,14 +181,16 @@ class TestGetEventsEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    @patch('app.routers.calendar.uuid.uuid4')
-    @patch('app.routers.calendar.datetime')
+    @patch("app.routers.calendar.uuid.uuid4")
+    @patch("app.routers.calendar.datetime")
     def test_get_calendar_with_events(self, mock_datetime, mock_uuid, client):
         mock_db_session = Mock()
-        
+
         mock_uuid.return_value = "test-uuid-123"
-        mock_datetime.now.return_value = datetime(2025, 6, 28, 12, 0, 0, tzinfo=timezone.utc)
-        
+        mock_datetime.now.return_value = datetime(
+            2025, 6, 28, 12, 0, 0, tzinfo=timezone.utc
+        )
+
         sample_event = Mock()
         sample_event.title = "Test Event"
         sample_event.start_time = datetime(2025, 7, 1, 19, 0, 0)
@@ -198,20 +198,20 @@ class TestGetEventsEndpoint:
         sample_event.description = "A test event for the calendar"
         sample_event.venue = "Test Venue"
         sample_event.url = "https://example.com"
-        
+
         mock_db_session.query.return_value.all.return_value = [sample_event]
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         try:
             response = client.get("/events.ics")
-            
+
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/calendar; charset=utf-8"
-            
+
             calendar_text = response.text
             assert "BEGIN:VCALENDAR" in calendar_text
             assert "END:VCALENDAR" in calendar_text
@@ -227,7 +227,7 @@ class TestGetEventsEndpoint:
 
     def test_get_calendar_multiple_events(self, client):
         mock_db_session = Mock()
-        
+
         event1 = Mock()
         event1.title = "Event 1"
         event1.start_time = datetime(2025, 7, 1, 19, 0, 0)
@@ -235,7 +235,7 @@ class TestGetEventsEndpoint:
         event1.description = "First event"
         event1.venue = "Venue 1"
         event1.url = "https://example1.com"
-        
+
         event2 = Mock()
         event2.title = "Event 2"
         event2.start_time = datetime(2025, 7, 2, 19, 0, 0)
@@ -243,20 +243,20 @@ class TestGetEventsEndpoint:
         event2.description = "Second event"
         event2.venue = "Venue 2"
         event2.url = "https://example2.com"
-        
+
         mock_db_session.query.return_value.all.return_value = [event1, event2]
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         try:
             response = client.get("/events.ics")
-            
+
             assert response.status_code == 200
             calendar_text = response.text
-            
+
             assert calendar_text.count("BEGIN:VEVENT") == 2
             assert calendar_text.count("END:VEVENT") == 2
             assert "SUMMARY:Event 1" in calendar_text
@@ -268,7 +268,7 @@ class TestGetEventsEndpoint:
 
     def test_get_calendar_validates_ical_format(self, client):
         mock_db_session = Mock()
-        
+
         sample_event = Mock()
         sample_event.title = "Test Event"
         sample_event.start_time = datetime(2025, 7, 1, 19, 0, 0)
@@ -276,41 +276,43 @@ class TestGetEventsEndpoint:
         sample_event.description = "A test event for the calendar"
         sample_event.venue = "Test Venue"
         sample_event.url = "https://example.com"
-        
+
         mock_db_session.query.return_value.all.return_value = [sample_event]
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         try:
             response = client.get("/events.ics")
-            
+
             assert response.status_code == 200
-            
+
             calendar = Calendar.from_ical(response.content)
             assert calendar is not None
-            
-            events = [component for component in calendar.walk() if component.name == "VEVENT"]
+
+            events = [
+                component for component in calendar.walk() if component.name == "VEVENT"
+            ]
             assert len(events) == 1
-            
+
             event = events[0]
-            assert event.get('summary') == "Test Event"
-            assert event.get('location') == "Test Venue"
-            assert event.get('description') == "A test event for the calendar"
+            assert event.get("summary") == "Test Event"
+            assert event.get("location") == "Test Venue"
+            assert event.get("description") == "A test event for the calendar"
         finally:
             app.dependency_overrides.clear()
 
     def test_get_calendar_database_error_handled_gracefully(self, client):
         mock_db_session = Mock()
         mock_db_session.query.side_effect = Exception("Database connection error")
-        
+
         def override_get_db():
             return mock_db_session
-        
+
         app.dependency_overrides[get_db] = override_get_db
-        
+
         try:
             response = client.get("/events.ics")
             assert response.status_code in [200, 500]

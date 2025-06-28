@@ -11,35 +11,31 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-    
+
     # Database configuration
     database_url: str = Field(
-        default="sqlite:///./events.db",
-        description="Database connection URL"
+        default="sqlite:///./events.db", description="Database connection URL"
     )
-    
+
     # Authentication configuration
     auth_username: str = Field(
-        default="admin",
-        description="Username for basic authentication"
+        default="admin", description="Username for basic authentication"
     )
     auth_password: str = Field(
-        ...,
-        description="Password for basic authentication (required)"
+        ..., description="Password for basic authentication (required)"
     )
-    
+
     # Application configuration
     app_title: str = Field(
-        default="Community Events Calendar",
-        description="Application title"
+        default="Community Events Calendar", description="Application title"
     )
     app_description: str = Field(
         default="API for managing community events with ICS calendar generation",
-        description="Application description"
+        description="Application description",
     )
     calendar_prodid: str = Field(
         default="-//Community Events Calendar//EN",
-        description="Calendar product identifier for ICS generation"
+        description="Calendar product identifier for ICS generation",
     )
 
 

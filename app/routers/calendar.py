@@ -20,12 +20,18 @@ router = APIRouter(
 
 security = HTTPBasic()
 
+
 def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)) -> str:
-    correct_username = secrets.compare_digest(credentials.username, settings.auth_username)
-    correct_password = secrets.compare_digest(credentials.password, settings.auth_password)
+    correct_username = secrets.compare_digest(
+        credentials.username, settings.auth_username
+    )
+    correct_password = secrets.compare_digest(
+        credentials.password, settings.auth_password
+    )
     if not (correct_username and correct_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return credentials.username
+
 
 class EventCreate(BaseModel):
     title: str
@@ -36,61 +42,70 @@ class EventCreate(BaseModel):
     url: str = ""
     tags: List[str] = []
 
+
 @router.post("/add-event")
-async def add_event(event: EventCreate, db: Session = Depends(get_db)) -> dict[str, str]:
+async def add_event(
+    event: EventCreate, db: Session = Depends(get_db)
+) -> dict[str, str]:
     db_event = Event(
         title=event.title,
         start_time=event.start_time,
         end_time=event.end_time,
         description=event.description,
         venue=event.venue,
-        url=event.url
+        url=event.url,
     )
     db_event.set_tags_list(event.tags)
-    
+
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
-    
+
     return {"message": "Event added successfully", "event_id": str(db_event.id)}
+
 
 @router.get("/events.ics")
 async def get_calendar(db: Session = Depends(get_db)) -> Response:
     cal = Calendar()
-    cal.add('prodid', settings.calendar_prodid)
-    cal.add('version', '2.0')
-    cal.add('calscale', 'GREGORIAN')
-    cal.add('method', 'PUBLISH')
-    
+    cal.add("prodid", settings.calendar_prodid)
+    cal.add("version", "2.0")
+    cal.add("calscale", "GREGORIAN")
+    cal.add("method", "PUBLISH")
+
     events = db.query(Event).all()
-    
+
     for event in events:
         ical_event = ICalEvent()
-        ical_event.add('uid', str(uuid.uuid4()))
-        ical_event.add('dtstart', event.start_time)
-        ical_event.add('dtend', event.end_time)
-        ical_event.add('summary', event.title)
-        ical_event.add('description', event.description)
-        ical_event.add('location', event.venue)
-        ical_event.add('url', event.url)
-        ical_event.add('dtstamp', datetime.now(timezone.utc))
-        ical_event.add('created', datetime.now(timezone.utc))
-        
+        ical_event.add("uid", str(uuid.uuid4()))
+        ical_event.add("dtstart", event.start_time)
+        ical_event.add("dtend", event.end_time)
+        ical_event.add("summary", event.title)
+        ical_event.add("description", event.description)
+        ical_event.add("location", event.venue)
+        ical_event.add("url", event.url)
+        ical_event.add("dtstamp", datetime.now(timezone.utc))
+        ical_event.add("created", datetime.now(timezone.utc))
+
         cal.add_component(ical_event)
-    
-    return Response(cal.to_ical(), media_type="text/calendar", 
-                   headers={"Content-Disposition": "attachment; filename=events.ics"})
+
+    return Response(
+        cal.to_ical(),
+        media_type="text/calendar",
+        headers={"Content-Disposition": "attachment; filename=events.ics"},
+    )
+
 
 @router.post("/cleanup")
 async def cleanup_past_events(db: Session = Depends(get_db)) -> dict[str, str]:
     now = datetime.now(timezone.utc)
     past_events = db.query(Event).filter(Event.end_time < now).all()
-    
+
     for event in past_events:
         db.delete(event)
-    
+
     db.commit()
     return {"message": f"Removed {len(past_events)} past events"}
+
 
 @router.get("/submit-event", response_class=HTMLResponse)
 async def submit_event_form(username: str = Depends(authenticate_user)) -> str:
@@ -148,6 +163,7 @@ async def submit_event_form(username: str = Depends(authenticate_user)) -> str:
     """
     return form_html
 
+
 @router.post("/submit-event", response_class=HTMLResponse)
 async def submit_event_form_post(
     title: str = Form(...),
@@ -158,27 +174,27 @@ async def submit_event_form_post(
     url: str = Form(""),
     tags: str = Form(""),
     username: str = Depends(authenticate_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> str:
     try:
         start_dt = datetime.fromisoformat(start_time)
         end_dt = datetime.fromisoformat(end_time)
-        
+
         tags_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
-        
+
         db_event = Event(
             title=title,
             start_time=start_dt,
             end_time=end_dt,
             description=description,
             venue=venue,
-            url=url
+            url=url,
         )
         db_event.set_tags_list(tags_list)
-        
+
         db.add(db_event)
         db.commit()
-        
+
         return """
         <!DOCTYPE html>
         <html>
@@ -198,12 +214,12 @@ async def submit_event_form_post(
         </body>
         </html>
         """
-        
+
     except ValueError as e:
         error_message = f"Invalid date format: {str(e)}"
     except Exception as e:
         error_message = f"Error submitting event: {str(e)}"
-    
+
     form_html = f"""
     <!DOCTYPE html>
     <html>
