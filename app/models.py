@@ -1,0 +1,42 @@
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+Base = declarative_base()
+
+class Event(Base):
+    __tablename__ = "events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    description = Column(Text, nullable=False)
+    venue = Column(String, nullable=False)
+    url = Column(String, default="")
+    tags = Column(String, default="")
+    
+    def get_tags_list(self) -> List[str]:
+        if not self.tags:
+            return []
+        return [tag.strip() for tag in self.tags.split(",") if tag.strip()]
+    
+    def set_tags_list(self, tags: List[str]):
+        self.tags = ",".join(tags)
+
+DATABASE_URL = "sqlite:///./events.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def create_tables():
+    Base.metadata.create_all(bind=engine)
