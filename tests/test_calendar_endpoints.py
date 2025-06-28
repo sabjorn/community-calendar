@@ -14,19 +14,6 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture
-def sample_event_data():
-    return {
-        "title": "Test Event",
-        "start_time": "2025-07-01T19:00:00",
-        "end_time": "2025-07-01T21:00:00",
-        "description": "A test event for the calendar",
-        "venue": "Test Venue",
-        "url": "https://example.com",
-        "tags": ["test", "demo"]
-    }
-
-
 class TestAddEventEndpoint:
     
     def test_add_event_missing_required_fields(self, client):
@@ -50,13 +37,23 @@ class TestAddEventEndpoint:
         response = client.post("/add-event", json=invalid_data)
         assert response.status_code == 422
 
-    def test_add_event_success(self, client, sample_event_data):
+    def test_add_event_success(self, client):
         mock_db_session = Mock()
         
         def override_get_db():
             return mock_db_session
         
         app.dependency_overrides[get_db] = override_get_db
+
+        sample_event_data = {
+            "title": "Test Event",
+            "start_time": "2025-07-01T19:00:00",
+            "end_time": "2025-07-01T21:00:00",
+            "description": "A test event for the calendar",
+            "venue": "Test Venue",
+            "url": "https://example.com",
+            "tags": ["test", "demo"]
+        }
         
         try:
             with patch('app.routers.calendar.Event') as mock_event_class:
