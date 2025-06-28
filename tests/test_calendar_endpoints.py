@@ -5,8 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 from icalendar import Calendar
 
-from app.main import app
-from app.models import get_db
+# Mock create_tables before importing app to prevent database creation
+with patch('app.models.create_tables'):
+    from app.main import app
+    from app.models import get_db
 
 
 @pytest.fixture
