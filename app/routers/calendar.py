@@ -10,6 +10,7 @@ from icalendar import Calendar, Event as ICalEvent
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..models import Event, get_db, create_tables
 
 router = APIRouter(
@@ -19,12 +20,9 @@ router = APIRouter(
 
 security = HTTPBasic()
 
-USERNAME = "admin"
-PASSWORD = "password"
-
 def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, USERNAME)
-    correct_password = secrets.compare_digest(credentials.password, PASSWORD)
+    correct_username = secrets.compare_digest(credentials.username, settings.auth_username)
+    correct_password = secrets.compare_digest(credentials.password, settings.auth_password)
     if not (correct_username and correct_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return credentials.username
@@ -59,7 +57,7 @@ async def add_event(event: EventCreate, db: Session = Depends(get_db)):
 @router.get("/events.ics")
 async def get_calendar(db: Session = Depends(get_db)):
     cal = Calendar()
-    cal.add('prodid', '-//Community Events Calendar//EN')
+    cal.add('prodid', settings.calendar_prodid)
     cal.add('version', '2.0')
     cal.add('calscale', 'GREGORIAN')
     cal.add('method', 'PUBLISH')

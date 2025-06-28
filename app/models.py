@@ -5,6 +5,8 @@ from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from .config import settings
+
 Base = declarative_base()
 
 class Event(Base):
@@ -27,8 +29,7 @@ class Event(Base):
     def set_tags_list(self, tags: List[str]):
         self.tags = ",".join(tags)
 
-DATABASE_URL = "sqlite:///./events.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():

@@ -1,9 +1,13 @@
+import os
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from icalendar import Calendar
+
+# Set required environment variables for testing
+os.environ["AUTH_PASSWORD"] = "test_password"
 
 # Mock create_tables before importing app to prevent database creation
 with patch('app.models.create_tables'):
