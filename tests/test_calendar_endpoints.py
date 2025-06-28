@@ -6,11 +6,20 @@ import pytest
 from fastapi.testclient import TestClient
 from icalendar import Calendar
 
-# Set required environment variables for testing
-os.environ["AUTH_PASSWORD"] = "test_password"
+# Mock environment variables before any imports
+test_env = {
+    "DATABASE_URL": "sqlite:///:memory:",
+    "AUTH_USERNAME": "admin", 
+    "AUTH_PASSWORD": "test_password",
+    "APP_TITLE": "Test Calendar",
+    "APP_DESCRIPTION": "Test Description",
+    "CALENDAR_PRODID": "-//Test Calendar//EN"
+}
 
-# Mock create_tables before importing app to prevent database creation
-with patch('app.models.create_tables'):
+# Mock settings and create_tables before importing app
+with patch.dict(os.environ, test_env), \
+     patch('app.models.create_tables'):
+    
     from app.main import app
     from app.models import get_db
 
@@ -169,7 +178,7 @@ class TestGetEventsEndpoint:
             calendar_text = response.text
             assert "BEGIN:VCALENDAR" in calendar_text
             assert "END:VCALENDAR" in calendar_text
-            assert "PRODID:-//Community Events Calendar//EN" in calendar_text
+            assert "PRODID:-//Test Calendar//EN" in calendar_text
             assert "VERSION:2.0" in calendar_text
         finally:
             app.dependency_overrides.clear()
