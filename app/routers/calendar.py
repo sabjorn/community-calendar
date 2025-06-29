@@ -46,7 +46,7 @@ class EventCreate(BaseModel):
 async def add_event(
     event: EventCreate,
     db: Session = Depends(get_db),
-    username: str = Depends(authenticate_user),
+    _: str = Depends(authenticate_user),
 ) -> dict[str, str]:
     db_event = Event(
         title=event.title,
@@ -98,7 +98,7 @@ async def get_calendar(db: Session = Depends(get_db)) -> Response:
 
 @router.post("/cleanup")
 async def cleanup_past_events(
-    db: Session = Depends(get_db), username: str = Depends(authenticate_user)
+    db: Session = Depends(get_db), _: str = Depends(authenticate_user)
 ) -> dict[str, str]:
     now = datetime.now(timezone.utc)
     past_events = db.query(Event).filter(Event.end_time < now).all()
@@ -112,7 +112,7 @@ async def cleanup_past_events(
 
 @router.get("/submit-event", response_class=HTMLResponse)
 async def submit_event_form(
-    username: str = Depends(authenticate_user),
+    _: str = Depends(authenticate_user),
     success: str | None = None,
     error: str | None = None,
 ) -> str:
@@ -192,7 +192,7 @@ async def submit_event_form_post(
     venue: str = Form(...),
     url: str = Form(""),
     tags: str = Form(""),
-    username: str = Depends(authenticate_user),
+    _: str = Depends(authenticate_user),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     try:
