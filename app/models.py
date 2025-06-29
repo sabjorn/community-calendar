@@ -1,4 +1,4 @@
-from typing import Generator, List
+from typing import Generator
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -22,12 +22,12 @@ class Event(Base):
     url = Column(String, default="")
     tags = Column(String, default="")
 
-    def get_tags_list(self) -> List[str]:
+    def get_tags_list(self) -> list[str]:
         if not self.tags:
             return []
         return [tag.strip() for tag in self.tags.split(",") if tag.strip()]
 
-    def set_tags_list(self, tags: List[str]) -> None:
+    def set_tags_list(self, tags: list[str]) -> None:
         self.tags = ",".join(tags)  # type: ignore[assignment]
 
 

@@ -1,10 +1,9 @@
 import secrets
 import uuid
 from datetime import datetime, timezone
-from typing import List
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from icalendar import Calendar, Event as ICalEvent
 from pydantic import BaseModel
@@ -40,12 +39,14 @@ class EventCreate(BaseModel):
     description: str
     venue: str
     url: str = ""
-    tags: List[str] = []
+    tags: list[str] = []
 
 
 @router.post("/add-event")
 async def add_event(
-    event: EventCreate, db: Session = Depends(get_db)
+    event: EventCreate,
+    db: Session = Depends(get_db),
+    username: str = Depends(authenticate_user),
 ) -> dict[str, str]:
     db_event = Event(
         title=event.title,
@@ -96,7 +97,9 @@ async def get_calendar(db: Session = Depends(get_db)) -> Response:
 
 
 @router.post("/cleanup")
-async def cleanup_past_events(db: Session = Depends(get_db)) -> dict[str, str]:
+async def cleanup_past_events(
+    db: Session = Depends(get_db), username: str = Depends(authenticate_user)
+) -> dict[str, str]:
     now = datetime.now(timezone.utc)
     past_events = db.query(Event).filter(Event.end_time < now).all()
 
@@ -108,25 +111,41 @@ async def cleanup_past_events(db: Session = Depends(get_db)) -> dict[str, str]:
 
 
 @router.get("/submit-event", response_class=HTMLResponse)
-async def submit_event_form(username: str = Depends(authenticate_user)) -> str:
-    form_html = """
+async def submit_event_form(
+    username: str = Depends(authenticate_user),
+    success: str | None = None,
+    error: str | None = None,
+) -> str:
+    message_html = ""
+    if success:
+        message_html = '<div class="success">Event submitted successfully! <a href="/submit-event">Submit another event</a></div>'
+    elif error:
+        message_html = (
+            '<div class="error">Error submitting event. Please try again.</div>'
+        )
+
+    form_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <title>Submit Event</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-            .form-group { margin-bottom: 15px; }
-            label { display: block; margin-bottom: 5px; font-weight: bold; }
-            input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-            textarea { height: 100px; resize: vertical; }
-            button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
-            button:hover { background-color: #0056b3; }
-            .error { color: red; margin-top: 10px; }
+            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
+            .form-group {{ margin-bottom: 15px; }}
+            label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
+            input, textarea {{ width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }}
+            textarea {{ height: 100px; resize: vertical; }}
+            button {{ background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }}
+            button:hover {{ background-color: #0056b3; }}
+            .error {{ color: red; margin-bottom: 15px; }}
+            .success {{ color: green; margin-bottom: 15px; }}
+            a {{ color: #007bff; text-decoration: none; }}
+            a:hover {{ text-decoration: underline; }}
         </style>
     </head>
     <body>
         <h1>Submit Event</h1>
+        {message_html}
         <form method="post" action="/submit-event">
             <div class="form-group">
                 <label for="title">Title:</label>
@@ -164,7 +183,7 @@ async def submit_event_form(username: str = Depends(authenticate_user)) -> str:
     return form_html
 
 
-@router.post("/submit-event", response_class=HTMLResponse)
+@router.post("/submit-event")
 async def submit_event_form_post(
     title: str = Form(...),
     start_time: str = Form(...),
@@ -175,7 +194,7 @@ async def submit_event_form_post(
     tags: str = Form(""),
     username: str = Depends(authenticate_user),
     db: Session = Depends(get_db),
-) -> str:
+) -> RedirectResponse:
     try:
         start_dt = datetime.fromisoformat(start_time)
         end_dt = datetime.fromisoformat(end_time)
@@ -195,82 +214,7 @@ async def submit_event_form_post(
         db.add(db_event)
         db.commit()
 
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Event Submitted</title>
-            <style>
-                body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-                .success { color: green; }
-                a { color: #007bff; text-decoration: none; }
-                a:hover { text-decoration: underline; }
-            </style>
-        </head>
-        <body>
-            <h1>Event Submitted Successfully!</h1>
-            <p class="success">Your event has been added to the calendar.</p>
-            <p><a href="/submit-event">Submit another event</a></p>
-        </body>
-        </html>
-        """
+        return RedirectResponse(url="/submit-event?success=1", status_code=303)
 
-    except ValueError as e:
-        error_message = f"Invalid date format: {str(e)}"
-    except Exception as e:
-        error_message = f"Error submitting event: {str(e)}"
-
-    form_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Submit Event</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
-            .form-group {{ margin-bottom: 15px; }}
-            label {{ display: block; margin-bottom: 5px; font-weight: bold; }}
-            input, textarea {{ width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }}
-            textarea {{ height: 100px; resize: vertical; }}
-            button {{ background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }}
-            button:hover {{ background-color: #0056b3; }}
-            .error {{ color: red; margin-top: 10px; }}
-        </style>
-    </head>
-    <body>
-        <h1>Submit Event</h1>
-        <div class="error">{error_message}</div>
-        <form method="post" action="/submit-event">
-            <div class="form-group">
-                <label for="title">Title:</label>
-                <input type="text" id="title" name="title" value="{title}" required>
-            </div>
-            <div class="form-group">
-                <label for="start_time">Start Time:</label>
-                <input type="datetime-local" id="start_time" name="start_time" value="{start_time}" required>
-            </div>
-            <div class="form-group">
-                <label for="end_time">End Time:</label>
-                <input type="datetime-local" id="end_time" name="end_time" value="{end_time}" required>
-            </div>
-            <div class="form-group">
-                <label for="description">Description:</label>
-                <textarea id="description" name="description" required>{description}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="venue">Venue:</label>
-                <input type="text" id="venue" name="venue" value="{venue}" required>
-            </div>
-            <div class="form-group">
-                <label for="url">URL:</label>
-                <input type="url" id="url" name="url" value="{url}">
-            </div>
-            <div class="form-group">
-                <label for="tags">Tags (comma-separated):</label>
-                <input type="text" id="tags" name="tags" value="{tags}" placeholder="e.g., music, outdoor, family">
-            </div>
-            <button type="submit">Submit Event</button>
-        </form>
-    </body>
-    </html>
-    """
-    return form_html
+    except Exception:
+        return RedirectResponse(url="/submit-event?error=1", status_code=303)

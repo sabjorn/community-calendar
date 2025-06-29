@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Development
+.git/
+.gitignore
+.pre-commit-config.yaml
+.pytest_cache/
+tests/
+mypy.ini
+
+# Documentation
+README.md
+*.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local database (don't include in container)
+events.db
+
+# Environment files
+.env
+.env.local
+.env.*.local

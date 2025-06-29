@@ -1,3 +1,4 @@
+import base64
 import os
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
@@ -27,17 +28,24 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture
+def auth_headers():
+    """Basic auth headers for testing authenticated endpoints"""
+    credentials = base64.b64encode(b"admin:test_password").decode("ascii")
+    return {"Authorization": f"Basic {credentials}"}
+
+
 class TestAddEventEndpoint:
-    def test_add_event_missing_required_fields(self, client):
+    def test_add_event_missing_required_fields(self, client, auth_headers):
         incomplete_data = {
             "title": "Incomplete Event",
             "start_time": "2025-07-01T19:00:00",
         }
 
-        response = client.post("/add-event", json=incomplete_data)
+        response = client.post("/add-event", json=incomplete_data, headers=auth_headers)
         assert response.status_code == 422
 
-    def test_add_event_invalid_datetime_format(self, client):
+    def test_add_event_invalid_datetime_format(self, client, auth_headers):
         invalid_data = {
             "title": "Invalid Event",
             "start_time": "invalid-datetime",
@@ -46,10 +54,10 @@ class TestAddEventEndpoint:
             "venue": "Test Venue",
         }
 
-        response = client.post("/add-event", json=invalid_data)
+        response = client.post("/add-event", json=invalid_data, headers=auth_headers)
         assert response.status_code == 422
 
-    def test_add_event_success(self, client):
+    def test_add_event_success(self, client, auth_headers):
         mock_db_session = Mock()
 
         def override_get_db():
@@ -74,7 +82,9 @@ class TestAddEventEndpoint:
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
 
-                response = client.post("/add-event", json=sample_event_data)
+                response = client.post(
+                    "/add-event", json=sample_event_data, headers=auth_headers
+                )
 
                 assert response.status_code == 200
                 response_data = response.json()
@@ -89,7 +99,7 @@ class TestAddEventEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    def test_add_event_with_tags(self, client):
+    def test_add_event_with_tags(self, client, auth_headers):
         mock_db_session = Mock()
 
         def override_get_db():
@@ -113,7 +123,9 @@ class TestAddEventEndpoint:
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
 
-                response = client.post("/add-event", json=event_data)
+                response = client.post(
+                    "/add-event", json=event_data, headers=auth_headers
+                )
 
                 assert response.status_code == 200
                 mock_event.set_tags_list.assert_called_once_with(
@@ -122,7 +134,7 @@ class TestAddEventEndpoint:
         finally:
             app.dependency_overrides.clear()
 
-    def test_add_event_minimal_data(self, client):
+    def test_add_event_minimal_data(self, client, auth_headers):
         mock_db_session = Mock()
 
         def override_get_db():
@@ -145,7 +157,9 @@ class TestAddEventEndpoint:
                 mock_event.set_tags_list = Mock()
                 mock_event_class.return_value = mock_event
 
-                response = client.post("/add-event", json=minimal_event_data)
+                response = client.post(
+                    "/add-event", json=minimal_event_data, headers=auth_headers
+                )
 
                 assert response.status_code == 200
                 response_data = response.json()
@@ -153,6 +167,50 @@ class TestAddEventEndpoint:
                 assert response_data["event_id"] == "3"
         finally:
             app.dependency_overrides.clear()
+
+    def test_add_event_unauthenticated(self, client):
+        sample_event_data = {
+            "title": "Test Event",
+            "start_time": "2025-07-01T19:00:00",
+            "end_time": "2025-07-01T21:00:00",
+            "description": "A test event for the calendar",
+            "venue": "Test Venue",
+        }
+
+        response = client.post("/add-event", json=sample_event_data)
+        assert response.status_code == 401
+
+    def test_cleanup_past_events_success(self, client, auth_headers):
+        mock_db_session = Mock()
+
+        # Mock past events
+        past_event1 = Mock()
+        past_event2 = Mock()
+        mock_db_session.query.return_value.filter.return_value.all.return_value = [
+            past_event1,
+            past_event2,
+        ]
+
+        def override_get_db():
+            return mock_db_session
+
+        app.dependency_overrides[get_db] = override_get_db
+
+        try:
+            response = client.post("/cleanup", headers=auth_headers)
+
+            assert response.status_code == 200
+            response_data = response.json()
+            assert response_data["message"] == "Removed 2 past events"
+
+            assert mock_db_session.delete.call_count == 2
+            mock_db_session.commit.assert_called_once()
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_cleanup_past_events_unauthenticated(self, client):
+        response = client.post("/cleanup")
+        assert response.status_code == 401
 
 
 class TestGetEventsEndpoint:

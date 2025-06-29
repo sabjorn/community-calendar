@@ -2,11 +2,16 @@ FROM python:3.12-slim-bullseye
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-RUN mkdir -p /var/www/html
-
-COPY . /app
-
 WORKDIR /app
-RUN uv sync --frozen --no-cache
 
-CMD ["/app/.venv/bin/fastapi", "run", "app/main.py", "--port", "9999"]
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --frozen --no-dev
+
+COPY app/ ./app/
+
+ENV AUTH_PASSWORD=change_me_in_production
+
+EXPOSE 8000
+
+CMD ["uv", "run", "fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
