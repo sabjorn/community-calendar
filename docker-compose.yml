@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  community-calendar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - web
+    restart: unless-stopped
+    volumes:
+      - sqlitedata:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/events.db
+      - AUTH_USERNAME=${AUTH_USERNAME}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - APP_TITLE=${APP_TITLE:-Community Events Calendar}
+      - APP_DESCRIPTION=${APP_DESCRIPTION:-API for managing community events with ICS calendar generation}
+      - CALENDAR_PRODID=${CALENDAR_PRODID:--//Community Events Calendar//EN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.port=8000"
+      - "traefik.docker.network=web"
+      - "traefik.frontend.rule=Host:calendar.halfpastvibe.com"
+
+volumes:
+  sqlitedata:
+
+networks:
+  web:
+    external: true
