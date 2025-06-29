@@ -7,7 +7,6 @@ import pytest
 from fastapi.testclient import TestClient
 from icalendar import Calendar
 
-# Mock environment variables before any imports
 test_env = {
     "DATABASE_URL": "sqlite:///:memory:",
     "AUTH_USERNAME": "admin",
@@ -17,7 +16,6 @@ test_env = {
     "CALENDAR_PRODID": "-//Test Calendar//EN",
 }
 
-# Mock settings and create_tables before importing app
 with patch.dict(os.environ, test_env), patch("app.models.create_tables"):
     from app.main import app
     from app.models import get_db
@@ -30,7 +28,6 @@ def client():
 
 @pytest.fixture
 def auth_headers():
-    """Basic auth headers for testing authenticated endpoints"""
     credentials = base64.b64encode(b"admin:test_password").decode("ascii")
     return {"Authorization": f"Basic {credentials}"}
 
@@ -183,7 +180,6 @@ class TestAddEventEndpoint:
     def test_cleanup_past_events_success(self, client, auth_headers):
         mock_db_session = Mock()
 
-        # Mock past events
         past_event1 = Mock()
         past_event2 = Mock()
         mock_db_session.query.return_value.filter.return_value.all.return_value = [

@@ -12,12 +12,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Database configuration
     database_url: str = Field(
         default="sqlite:///./events.db", description="Database connection URL"
     )
 
-    # Authentication configuration
     auth_username: str = Field(
         default="admin", description="Username for basic authentication"
     )
@@ -25,7 +23,6 @@ class Settings(BaseSettings):
         ..., description="Password for basic authentication (required)"
     )
 
-    # Application configuration
     app_title: str = Field(
         default="Community Events Calendar", description="Application title"
     )
@@ -39,9 +36,7 @@ class Settings(BaseSettings):
     )
 
 
-# Global settings instance
-# Note: This will fail if AUTH_PASSWORD is not set in environment
 if not os.getenv("AUTH_PASSWORD"):
-    os.environ["AUTH_PASSWORD"] = "development_password"  # pragma: no cover
+    os.environ["AUTH_PASSWORD"] = "development_password"
 
 settings = Settings()  # type: ignore[call-arg]
