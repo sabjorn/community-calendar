@@ -13,7 +13,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./data/events.db
       - AUTH_USERNAME=admin
-      - AUTH_PASSWORD=dev_password_123
+      - AUTH_PASSWORD=SecureDevPassword2024!@#
       - APP_TITLE=Community Events Calendar (Development)
       - APP_DESCRIPTION=Development instance of the community events calendar API
       - CALENDAR_PRODID=-//Community Events Calendar Dev//EN

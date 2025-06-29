@@ -1,5 +1,3 @@
-import os
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -35,8 +33,5 @@ class Settings(BaseSettings):
         description="Calendar product identifier for ICS generation",
     )
 
-
-if not os.getenv("AUTH_PASSWORD"):
-    os.environ["AUTH_PASSWORD"] = "development_password"
 
 settings = Settings()  # type: ignore[call-arg]

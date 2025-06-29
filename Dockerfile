@@ -12,7 +12,6 @@ COPY app/ ./app/
 
 RUN mkdir -p /app/data
 
-ENV AUTH_PASSWORD=change_me_in_production
 
 EXPOSE 8000
 

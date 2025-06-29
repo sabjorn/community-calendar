@@ -1,3 +1,4 @@
+import html
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from icalendar import Calendar, Event as ICalEvent
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -33,13 +34,41 @@ def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)) -> 
 
 
 class EventCreate(BaseModel):
-    title: str
+    title: str = Field(..., max_length=200, min_length=1)
     start_time: datetime
     end_time: datetime
-    description: str
-    venue: str
-    url: str = ""
-    tags: list[str] = []
+    description: str = Field(..., max_length=2000, min_length=1)
+    venue: str = Field(..., max_length=200, min_length=1)
+    url: str = Field("", max_length=500)
+    tags: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v):
+        if len(v) > 10:
+            raise ValueError("Maximum 10 tags allowed")
+        validated_tags = []
+        for tag in v:
+            if len(tag) > 50:
+                raise ValueError("Tag length cannot exceed 50 characters")
+            sanitized_tag = html.escape(tag.strip())
+            if sanitized_tag:
+                validated_tags.append(sanitized_tag)
+        return validated_tags
+
+    @field_validator("title", "description", "venue")
+    @classmethod
+    def sanitize_text_fields(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty")
+        return html.escape(v.strip())
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v):
+        if v:
+            return html.escape(v.strip())
+        return v
 
 
 @router.post("/add-event")
@@ -185,13 +214,13 @@ async def submit_event_form(
 
 @router.post("/submit-event")
 async def submit_event_form_post(
-    title: str = Form(...),
+    title: str = Form(..., max_length=200),
     start_time: str = Form(...),
     end_time: str = Form(...),
-    description: str = Form(...),
-    venue: str = Form(...),
-    url: str = Form(""),
-    tags: str = Form(""),
+    description: str = Form(..., max_length=2000),
+    venue: str = Form(..., max_length=200),
+    url: str = Form("", max_length=500),
+    tags: str = Form("", max_length=500),
     _: str = Depends(authenticate_user),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
@@ -199,15 +228,28 @@ async def submit_event_form_post(
         start_dt = datetime.fromisoformat(start_time)
         end_dt = datetime.fromisoformat(end_time)
 
-        tags_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        if start_dt >= end_dt:
+            return RedirectResponse(url="/submit-event?error=1", status_code=303)
+
+        sanitized_title = html.escape(title.strip())
+        sanitized_description = html.escape(description.strip())
+        sanitized_venue = html.escape(venue.strip())
+        sanitized_url = html.escape(url.strip()) if url else ""
+
+        tags_list = []
+        if tags:
+            raw_tags = [tag.strip() for tag in tags.split(",") if tag.strip()]
+            if len(raw_tags) > 10:
+                return RedirectResponse(url="/submit-event?error=1", status_code=303)
+            tags_list = [html.escape(tag)[:50] for tag in raw_tags[:10]]
 
         db_event = Event(
-            title=title,
+            title=sanitized_title,
             start_time=start_dt,
             end_time=end_dt,
-            description=description,
-            venue=venue,
-            url=url,
+            description=sanitized_description,
+            venue=sanitized_venue,
+            url=sanitized_url,
         )
         db_event.set_tags_list(tags_list)
 
